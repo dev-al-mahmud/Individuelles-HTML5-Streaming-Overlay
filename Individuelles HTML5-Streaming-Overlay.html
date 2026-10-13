@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CrossFit Streaming Overlay</title>
+<style>
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  font-family: 'Roboto', Arial, Helvetica, sans-serif;
+  background: #0f1117;
+  color: #eaeaea;
+  min-height: 100vh;
+}
+button { font-family: inherit; }
+input, select, button { font-family: inherit; }
+
+/* ============================================================
+   APP LAYOUT
+   ============================================================ */
+#app { display: flex; flex-direction: column; min-height: 100vh; }
+
+header.app-header {
+  padding: 16px 24px;
+  background: #14161c;
+  border-bottom: 1px solid #232838;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+header.app-header h1 {
+  font-size: 18px;
+  letter-spacing: 1px;
+  color: #7fd3ff;
+  text-transform: uppercase;
+}
+header.app-header .sub { font-size: 13px; opacity: .65; }
+
+main.app-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 0;
+}
+@media (max-width: 1100px) {
+  main.app-main { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   CONTROL PANEL
+   ============================================================ */
+#panel {
+  padding: 16px;
+  background: #12141a;
+  border-right: 1px solid #232838;
+  overflow-y: auto;
+  max-height: calc(100vh - 66px);
+}
+@media (max-width: 1100px) {
+  #panel { max-height: none; border-right: none; border-bottom: 1px solid #232838; }
+}
+
+.card {
+  background: #1a1d26;
+  border: 1px solid #262b3a;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.card h2 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #7fd3ff;
+  margin-bottom: 10px;
+}
+.card label {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 8px;
+  opacity: .9;
+}
+.card input[type="text"],
+.card input[type="number"],
+.card select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 7px 9px;
+  background: #0c0e14;
+  color: #fff;
+  border: 1px solid #2d3344;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.card input[type="color"] {
+  width: 46px;
+  height: 30px;
+  border: 1px solid #2d3344;
+  border-radius: 6px;
+  background: #0c0e14;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.card input[type="file"] {
+  font-size: 12px;
+  margin-top: 4px;
+  color: #cfd6e4;
+}
+
+.row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.row > label { flex: 1 1 120px; margin-bottom: 0; }
+
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+
+button.btn {
+  background: #2a6cf0;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+button.btn:hover { background: #3b7bff; }
+button.btn:active { transform: translateY(1px); }
+button.btn.secondary { background: #2a2f40; }
+button.btn.secondary:hover { background: #363c50; }
+button.btn.danger { background: #c0392b; }
+button.btn.danger:hover { background: #d94a3a; }
+
+.checkline { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.checkline input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+.checkline label { margin: 0; }
+
+.kbd-hint {
+  font-size: 12px;
+  opacity: .6;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+.kbd-hint code {
+  background: #0c0e14;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid #2d3344;
+  font-size: 11px;
+}
+
+/* ============================================================
+   STAGE / PREVIEW
+   ============================================================ */
+#stage {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background:
+    radial-gradient(circle at 20% 10%, #1b2130 0%, transparent 60%),
+    radial-gradient(circle at 80% 90%, #1a2230 0%, transparent 60%),
+    #0a0c11;
+}
+.stage-title {
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #7fd3ff;
+  opacity: .8;
+}
+.preview-wrap {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid #232838;
+  /* Checkerboard to visualize transparency */
+  background-color: #1a1d26;
+  background-image:
+    linear-gradient(45deg, #232838 25%, transparent 25%),
+    linear-gradient(-45deg, #232838 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #232838 75%),
+    linear-gradient(-45deg, transparent 75%, #232838 75%);
+  background-size: 24px 24px;
+  background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+}
+.preview-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1920px;
+  height: 1080px;
+  transform-origin: top left;
+  /* transform set by JS */
+}
+
+/* ============================================================
+   OVERLAY CONTENT (inside 1920x1080 box)
+   ============================================================ */
+.overlay {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding: 40px;
+  gap: 40px;
+  color: #fff;
+  font-family: 'Roboto', Arial, sans-serif;
+}
+
+.zone { display: flex; flex-direction: column; }
+
+/* LEFT */
+.zone-left { justify-content: flex-start; gap: 12px; }
+.logo-wrap { min-height: 0; }
+.logo-wrap img { max-width: 260px; max-height: 130px; display: block; }
+.logo-wrap.hidden { display: none; }
+
+.title {
+  font-size: 64px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-shadow: 0 4px 12px rgba(0,0,0,.85);
+  line-height: 1.05;
+  word-wrap: break-word;
+}
+.subtitle {
+  font-size: 38px;
+  font-weight: 500;
+  opacity: .92;
+  text-shadow: 0 3px 8px rgba(0,0,0,.85);
+  line-height: 1.15;
+}
+.free-text {
+  font-size: 28px;
+  opacity: .85;
+  text-shadow: 0 3px 8px rgba(0,0,0,.85);
+  margin-top: 8px;
+  line-height: 1.2;
+}
+
+/* CENTER */
+.zone-center {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+.timer {
+  font-size: 180px;
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 6px 24px rgba(0,0,0,.9);
+  letter-spacing: 6px;
+}
+.round-info, .phase-info {
+  font-size: 34px;
+  margin-top: 10px;
+  text-shadow: 0 3px 10px rgba(0,0,0,.9);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  font-weight: 700;
+  min-height: 0;
+}
+.phase-info.work { color: #4ade80; }
+.phase-info.rest { color: #facc15; }
+
+/* RIGHT */
+.zone-right {
+  justify-content: flex-start;
+  align-items: flex-end;
+  text-align: right;
+  gap: 14px;
+}
+.live-clock {
+  font-size: 44px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 4px 12px rgba(0,0,0,.9);
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+.info-block {
+  background: rgba(0,0,0,.38);
+  border-radius: 12px;
+  padding: 12px 20px;
+  min-width: 280px;
+  border: 1px solid rgba(255,255,255,.08);
+}
+.info-title {
+  font-size: 20px;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  opacity: .7;
+  margin-bottom: 4px;
+  font-weight: 700;
+}
+.info-text {
+  font-size: 28px;
+  font-weight: 600;
+  text-shadow: 0 2px 6px rgba(0,0,0,.8);
+  word-wrap: break-word;
+}
+
+.hidden { display: none !important; }
+
+/* ============================================================
+   OVERLAY-ONLY MODE (for OBS:  index.html?mode=overlay)
+   ============================================================ */
+body.overlay-only { background: transparent; }
+body.overlay-only header.app-header,
+body.overlay-only #panel,
+body.overlay-only .stage-title { display: none !important; }
+body.overlay-only main.app-main { display: block; }
+body.overlay-only #stage { padding: 0; background: transparent; display: block; }
+body.overlay-only .preview-wrap {
+  width: 1920px;
+  height: 1080px;
+  aspect-ratio: auto;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  background-image: none;
+}
+body.overlay-only .preview-inner { transform: none !important; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header class="app-header">
+    <div>
+      <h1>CrossFit Streaming Overlay</h1>
+      <div class="sub">Steuerung links · Live-Vorschau rechts · Für OBS: <code>index.html?mode=overlay</code></div>
+    </div>
+    <div class="actions">
+      <button class="btn secondary" id="btnOpenOverlay">Overlay-Fenster öffnen</button>
+      <button class="btn secondary" id="btnSave">Layout speichern</button>
+      <button class="btn danger" id="btnResetLayout">Standard</button>
+    </div>
+  </header>
+
+  <main class="app-main">
+
+    <!-- ============ CONTROL PANEL ============ -->
+    <aside id="panel">
+
+      <!-- TIMER -->
+      <section class="card">
+        <h2>Timer</h2>
+        <label>Modus
+          <select id="timerMode">
+            <option value="countdown">Countdown</option>
+            <option value="stopwatch">Stoppuhr</option>
+            <option value="interval">Intervalle</option>
+          </select>
+        </label>
+
+        <div class="row">
+          <label>Dauer (mm:ss)
+            <input type="text" id="durationInput" value="12:00" />
+          </label>
+          <label>Runden
+            <input type="number" id="roundsInput" value="3" min="1" />
+          </label>
+        </div>
+
+        <div class="row">
+          <label>Arbeit (s)
+            <input type="number" id="workInput" value="40" min="1" />
+          </label>
+          <label>Pause (s)
+            <input type="number" id="restInput" value="20" min="0" />
+          </label>
+        </div>
+
+        <div class="actions">
+          <button class="btn" id="btnStart">▶ Start</button>
+          <button class="btn secondary" id="btnPause">⏸ Pause</button>
+          <button class="btn secondary" id="btnReset">⟲ Reset</button>
+        </div>
+
+        <div class="row" style="margin-top:12px;">
+          <label>Timer-Farbe
+            <input type="color" id="timerColor" value="#ffffff" />
+          </label>
+          <label>Größe (px)
+            <input type="number" id="timerSize" value="180" min="40" max="400" />
+          </label>
+        </div>
+
+        <div class="checkline">
+          <input type="checkbox" id="colorChange" />
+          <label for="colorChange">Farbwechsel Grün → Gelb → Rot</label>
+        </div>
+
+        <div class="kbd-hint">
+          Shortcuts: <code>Space</code> Start · <code>P</code> Pause · <code>R</code> Reset
+        </div>
+      </section>
+
+      <!-- LEFT ZONE -->
+      <section class="card">
+        <h2>Linke Zone</h2>
+
+        <label>Logo hochladen
+          <input type="file" id="logoInput" accept="image/*" />
+        </label>
+        <div class="actions" style="margin-bottom:10px;">
+          <button class="btn secondary" id="btnRemoveLogo">Logo entfernen</button>
+        </div>
+
+        <label>Titel <input type="text" id="inTitle" value="CROSSFIT" /></label>
+        <label>Untertitel <input type="text" id="inSubtitle" value="Event Titel" /></label>
+        <label>Freitext <input type="text" id="inFreeLeft" value="Willkommen zum Workout" /></label>
+
+        <div class="row">
+          <label>Schriftart
+            <select id="fontFamily">
+              <option value="Arial, sans-serif">Arial</option>
+              <option value="'Impact', sans-serif">Impact</option>
+              <option value="'Roboto', sans-serif">Roboto</option>
+              <option value="'Courier New', monospace">Courier</option>
+              <option value="'Georgia', serif">Georgia</option>
+            </select>
+          </label>
+          <label>Größe
+            <input type="number" id="fontSize" value="64" min="12" max="200" />
+          </label>
+        </div>
+
+        <div class="row">
+          <label>Farbe
+            <input type="color" id="fontColor" value="#ffffff" />
+          </label>
+          <label>Ausrichtung
+            <select id="textAlign">
+              <option value="left">Links</option>
+              <option value="center">Mitte</option>
+              <option value="right">Rechts</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="checkline">
+          <input type="checkbox" id="showLeft" checked />
+          <label for="showLeft">Zone anzeigen</label>
+        </div>
+      </section>
+
+      <!-- RIGHT ZONE -->
+      <section class="card">
+        <h2>Rechte Zone</h2>
+
+        <label>WOD Titel <input type="text" id="inWodTitle" value="WOD" /></label>
+        <label>WOD Text <input type="text" id="inWodText" value="AMRAP 12 min" /></label>
+        <label>Coach Titel <input type="text" id="inCoachTitle" value="Coach" /></label>
+        <label>Coach Text <input type="text" id="inCoachText" value="Max Mustermann" /></label>
+        <label>Hinweis Titel <input type="text" id="inHintTitle" value="Hinweis" /></label>
+        <label>Hinweis Text <input type="text" id="inHintText" value="Stay hydrated" /></label>
+
+        <div class="checkline">
+          <input type="checkbox" id="showRight" checked />
+          <label for="showRight">Zone anzeigen</label>
+        </div>
+      </section>
+
+    </aside>
+
+    <!-- ============ STAGE / PREVIEW ============ -->
+    <section id="stage">
+      <div class="stage-title">Live-Vorschau · 1920 × 1080 · transparenter Hintergrund</div>
+
+      <div class="preview-wrap" id="previewWrap">
+        <div class="preview-inner" id="previewInner">
+          <div class="overlay">
+
+            <!-- LEFT -->
+            <section class="zone zone-left" id="zoneLeft">
+              <div class="logo-wrap hidden" id="logoWrap">
+                <img id="logoImg" alt="Logo" />
+              </div>
+              <h1 id="titleText" class="title">CROSSFIT</h1>
+              <h2 id="subtitleText" class="subtitle">Event Titel</h2>
+              <p id="freeTextLeft" class="free-text">Willkommen zum Workout</p>
+            </section>
+
+            <!-- CENTER -->
+            <section class="zone zone-center" id="zoneCenter">
+              <div id="timerDisplay" class="timer">12:00</div>
+              <div id="roundDisplay" class="round-info"></div>
+              <div id="phaseDisplay" class="phase-info"></div>
+            </section>
+
+            <!-- RIGHT -->
+            <section class="zone zone-right" id="zoneRight">
+              <div class="live-clock" id="liveClock">00:00:00</div>
+
+              <div class="info-block">
+                <h3 id="wodTitle" class="info-title">WOD</h3>
+                <p id="wodText" class="info-text">AMRAP 12 min</p>
+              </div>
+
+              <div class="info-block">
+                <h3 id="coachTitle" class="info-title">Coach</h3>
+                <p id="coachText" class="info-text">Max Mustermann</p>
+              </div>
+
+              <div class="info-block">
+                <h3 id="hintTitle" class="info-title">Hinweis</h3>
+                <p id="hintText" class="info-text">Stay hydrated</p>
+              </div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* =====================================================================
+   CrossFit Streaming Overlay — Single-File Edition
+   ===================================================================== */
+
+/* ---------- URL modes ---------- */
+const params = new URLSearchParams(location.search);
+const OVERLAY_ONLY = params.get('mode') === 'overlay';
+if (OVERLAY_ONLY) document.body.classList.add('overlay-only');
+
+/* ---------- State ---------- */
+const STORAGE_KEY = 'crossfit-overlay-state-v1';
+
+const DEFAULT_STATE = {
+  // Left
+  logo: '',
+  title: 'CROSSFIT',
+  subtitle: 'Event Titel',
+  freeLeft: 'Willkommen zum Workout',
+  fontFamily: 'Arial, sans-serif',
+  fontSize: 64,
+  fontColor: '#ffffff',
+  textAlign: 'left',
+  showLeft: true,
+
+  // Timer
+  timerMode: 'countdown',
+  duration: 720,   // seconds
+  rounds: 3,
+  work: 40,
+  rest: 20,
+  timerColor: '#ffffff',
+  timerSize: 180,
+  colorChange: false,
+
+  // Right
+  wodTitle: 'WOD',
+  wodText: 'AMRAP 12 min',
+  coachTitle: 'Coach',
+  coachText: 'Max Mustermann',
+  hintTitle: 'Hinweis',
+  hintText: 'Stay hydrated',
+  showRight: true
+};
+
+let state = loadState();
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? { ...DEFAULT_STATE, ...JSON.parse(raw) } : { ...DEFAULT_STATE };
+  } catch (e) {
+    return { ...DEFAULT_STATE };
+  }
+}
+function persist() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+/* =====================================================================
+   DOM REFERENCES
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+
+const el = {
+  // overlay
+  logoWrap:     $('logoWrap'),
+  logoImg:      $('logoImg'),
+  titleText:    $('titleText'),
+  subtitleText: $('subtitleText'),
+  freeTextLeft: $('freeTextLeft'),
+  timerDisplay: $('timerDisplay'),
+  roundDisplay: $('roundDisplay'),
+  phaseDisplay: $('phaseDisplay'),
+  liveClock:    $('liveClock'),
+  wodTitle:     $('wodTitle'),
+  wodText:      $('wodText'),
+  coachTitle:   $('coachTitle'),
+  coachText:    $('coachText'),
+  hintTitle:    $('hintTitle'),
+  hintText:     $('hintText'),
+  zoneLeft:     $('zoneLeft'),
+  zoneRight:    $('zoneRight'),
+
+  // stage
+  previewWrap: $('previewWrap'),
+  previewInner: $('previewInner')
+};
+
+/* =====================================================================
+   APPLY STATE → OVERLAY DOM
+   ===================================================================== */
+function applyState() {
+  // Logo
+  if (state.logo) {
+    el.logoImg.src = state.logo;
+    el.logoWrap.classList.remove('hidden');
+  } else {
+    el.logoImg.removeAttribute('src');
+    el.logoWrap.classList.add('hidden');
+  }
+
+  // Texts
+  el.titleText.textContent    = state.title;
+  el.subtitleText.textContent = state.subtitle;
+  el.freeTextLeft.textContent = state.freeLeft;
+
+  el.wodTitle.textContent   = state.wodTitle;
+  el.wodText.textContent    = state.wodText;
+  el.coachTitle.textContent = state.coachTitle;
+  el.coachText.textContent  = state.coachText;
+  el.hintTitle.textContent  = state.hintTitle;
+  el.hintText.textContent   = state.hintText;
+
+  // Font styling (left zone)
+  [el.titleText, el.subtitleText, el.freeTextLeft].forEach(node => {
+    node.style.fontFamily = state.fontFamily;
+    node.style.color      = state.fontColor;
+    node.style.textAlign  = state.textAlign;
+  });
+  el.titleText.style.fontSize    = state.fontSize + 'px';
+  el.subtitleText.style.fontSize = Math.round(state.fontSize * 0.6) + 'px';
+  el.freeTextLeft.style.fontSize = Math.round(state.fontSize * 0.44) + 'px';
+
+  // Timer styling
+  el.timerDisplay.style.fontSize = state.timerSize + 'px';
+  el.timerDisplay.style.color    = state.timerColor;
+
+  // Zone visibility
+  el.zoneLeft.classList.toggle('hidden', !state.showLeft);
+  el.zoneRight.classList.toggle('hidden', !state.showRight);
+
+  // Left zone alignment (also affects container)
+  el.zoneLeft.style.alignItems =
+    state.textAlign === 'center' ? 'center'
+    : state.textAlign === 'right' ? 'flex-end'
+    : 'flex-start';
+}
+
+/* =====================================================================
+   TIMER ENGINE
+   ===================================================================== */
+let remaining  = state.duration;
+let elapsed    = 0;
+let round      = 1;
+let phase      = 'work';   // 'work' | 'rest'
+let intervalId = null;
+let running    = false;
+
+function fmt(total) {
+  total = Math.max(0, Math.round(total));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+
+function renderTimer() {
+  const mode = state.timerMode;
+
+  if (mode === 'countdown') {
+    el.timerDisplay.textContent = fmt(remaining);
+    el.roundDisplay.textContent = '';
+    el.phaseDisplay.textContent = '';
+    el.phaseDisplay.className   = 'phase-info';
+  } else if (mode === 'stopwatch') {
+    el.timerDisplay.textContent = fmt(elapsed);
+    el.roundDisplay.textContent = '';
+    el.phaseDisplay.textContent = '';
+    el.phaseDisplay.className   = 'phase-info';
+  } else {
+    // interval
+    el.timerDisplay.textContent = fmt(remaining);
+    el.roundDisplay.textContent = `Runde ${Math.min(round, state.rounds)} / ${state.rounds}`;
+    el.phaseDisplay.textContent = phase === 'work' ? 'WORK' : 'REST';
+    el.phaseDisplay.className   = 'phase-info ' + phase;
+  }
+
+  // Color handling
+  if (state.colorChange && mode !== 'stopwatch') {
+    let totalForPhase, left;
+    if (mode === 'countdown') {
+      totalForPhase = state.duration;
+      left = remaining;
+    } else {
+      totalForPhase = phase === 'work' ? state.work : state.rest;
+      left = remaining;
+    }
+    const pct = totalForPhase > 0 ? left / totalForPhase : 0;
+    el.timerDisplay.style.color =
+      pct > 0.5 ? '#4ade80' :
+      pct > 0.2 ? '#facc15' :
+                  '#ef4444';
+  } else {
+    el.timerDisplay.style.color = state.timerColor;
+  }
+}
+
+function tick() {
+  const mode = state.timerMode;
+
+  if (mode === 'countdown') {
+    remaining--;
+    if (remaining <= 0) { remaining = 0; renderTimer(); stopTimer(); return; }
+  } else if (mode === 'stopwatch') {
+    elapsed++;
+  } else {
+    // interval
+    remaining--;
+    if (remaining <= 0) {
+      if (phase === 'work') {
+        phase = 'rest';
+        remaining = state.rest;
+        if (remaining <= 0) {
+          // Zero-length rest → next work immediately
+          phase = 'work';
+          round++;
+          remaining = state.work;
+        }
+      } else {
+        phase = 'work';
+        round++;
+        remaining = state.work;
+      }
+      if (round > state.rounds) {
+        stopTimer();
+        round = state.rounds;
+        phase = 'work';
+        remaining = 0;
+        renderTimer();
+        return;
+      }
+    }
+  }
+  renderTimer();
+}
+
+function startTimer() {
+  if (running) return;
+  running = true;
+  intervalId = setInterval(tick, 1000);
+}
+function stopTimer() {
+  running = false;
+  if (intervalId) clearInterval(intervalId);
+  intervalId = null;
+}
+function resetTimer() {
+  stopTimer();
+  remaining = state.duration;
+  elapsed   = 0;
+  round     = 1;
+  phase     = 'work';
+  renderTimer();
+}
+
+/* =====================================================================
+   LIVE CLOCK
+   ===================================================================== */
+function tickClock() {
+  const d = new Date();
+  el.liveClock.textContent =
+    String(d.getHours()).padStart(2,'0')   + ':' +
+    String(d.getMinutes()).padStart(2,'0') + ':' +
+    String(d.getSeconds()).padStart(2,'0');
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+/* =====================================================================
+   PREVIEW SCALING
+   ===================================================================== */
+function rescalePreview() {
+  if (OVERLAY_ONLY) return;
+  const wrapW = el.previewWrap.clientWidth;
+  const scale = wrapW / 1920;
+  el.previewInner.style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', rescalePreview);
+
+/* =====================================================================
+   CONTROL PANEL BINDINGS
+   ===================================================================== */
+function bindInput(id, key, transform) {
+  const node = $(id);
+  if (!node) return;
+
+  // initial value
+  if (node.type === 'checkbox') node.checked = !!state[key];
+  else if (key === 'duration')  node.value   = fmt(state.duration);
+  else                          node.value   = state[key];
+
+  const handler = () => {
+    let value;
+    if (node.type === 'checkbox')      value = node.checked;
+    else if (transform)                value = transform(node.value);
+    else                               value = node.value;
+
+    state[key] = value;
+    persist();
+    applyState();
+
+    // If a timer config changed, reset the running timer
+    if (['duration','work','rest','rounds','timerMode'].includes(key)) {
+      resetTimer();
+    } else {
+      renderTimer();
+    }
+  };
+
+  node.addEventListener('input',  handler);
+  node.addEventListener('change', handler);
+}
+
+function bindAll() {
+  // Left
+  bindInput('inTitle',     'title');
+  bindInput('inSubtitle',  'subtitle');
+  bindInput('inFreeLeft',  'freeLeft');
+  bindInput('fontFamily',  'fontFamily');
+  bindInput('fontSize',    'fontSize',    v => Number(v) || 64);
+  bindInput('fontColor',   'fontColor');
+  bindInput('textAlign',   'textAlign');
+  bindInput('showLeft',    'showLeft');
+
+  // Timer
+  bindInput('timerMode',   'timerMode');
+  bindInput('roundsInput', 'rounds',      v => Math.max(1, Number(v) || 1));
+  bindInput('workInput',   'work',        v => Math.max(1, Number(v) || 1));
+  bindInput('restInput',   'rest',        v => Math.max(0, Number(v) || 0));
+  bindInput('timerColor',  'timerColor');
+  bindInput('timerSize',   'timerSize',   v => Math.max(40, Math.min(400, Number(v) || 180)));
+  bindInput('colorChange', 'colorChange');
+
+  // Duration is special (mm:ss)
+  const durInput = $('durationInput');
+  if (durInput) {
+    durInput.value = fmt(state.duration);
+    durInput.addEventListener('change', () => {
+      const m = durInput.value.match(/^(\d+):(\d{1,2})$/);
+      if (m) {
+        const total = parseInt(m[1],10) * 60 + parseInt(m[2],10);
+        state.duration = Math.max(1, total);
+        remaining = state.duration;
+      }
+      durInput.value = fmt(state.duration);
+      persist();
+      resetTimer();
+    });
+  }
+
+  // Right
+  bindInput('inWodTitle',   'wodTitle');
+  bindInput('inWodText',    'wodText');
+  bindInput('inCoachTitle', 'coachTitle');
+  bindInput('inCoachText',  'coachText');
+  bindInput('inHintTitle',  'hintTitle');
+  bindInput('inHintText',   'hintText');
+  bindInput('showRight',    'showRight');
+
+  // Logo
+  const logoInput = $('logoInput');
+  if (logoInput) {
+    logoInput.addEventListener('change', () => {
+      const file = logoInput.files && logoInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        state.logo = e.target.result;
+        persist();
+        applyState();
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  const btnRemoveLogo = $('btnRemoveLogo');
+  if (btnRemoveLogo) {
+    btnRemoveLogo.addEventListener('click', () => {
+      state.logo = '';
+      if (logoInput) logoInput.value = '';
+      persist();
+      applyState();
+    });
+  }
+
+  // Timer controls
+  const btnStart = $('btnStart');
+  const btnPause = $('btnPause');
+  const btnReset = $('btnReset');
+  if (btnStart) btnStart.addEventListener('click', startTimer);
+  if (btnPause) btnPause.addEventListener('click', stopTimer);
+  if (btnReset) btnReset.addEventListener('click', resetTimer);
+
+  // Layout
+  const btnSave = $('btnSave');
+  const btnResetLayout = $('btnResetLayout');
+  if (btnSave) btnSave.addEventListener('click', () => {
+    persist();
+    // small visual feedback
+    btnSave.textContent = '✓ Gespeichert';
+    setTimeout(() => btnSave.textContent = 'Layout speichern', 1400);
+  });
+  if (btnResetLayout) btnResetLayout.addEventListener('click', () => {
+    if (!confirm('Standard-Layout wiederherstellen?')) return;
+    state = { ...DEFAULT_STATE };
+    persist();
+    location.reload();
+  });
+
+  // Open overlay window
+  const btnOpenOverlay = $('btnOpenOverlay');
+  if (btnOpenOverlay) {
+    btnOpenOverlay.addEventListener('click', () => {
+      const url = location.pathname + '?mode=overlay';
+      window.open(url, 'crossfit-overlay',
+        'width=1920,height=1080,menubar=no,toolbar=no');
+    });
+  }
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
+    if (e.code === 'Space') { e.preventDefault(); startTimer(); }
+    if (e.key === 'p' || e.key === 'P') stopTimer();
+    if (e.key === 'r' || e.key === 'R') resetTimer();
+  });
+}
+
+/* =====================================================================
+   CROSS-WINDOW SYNC (control <-> overlay)
+   Works when served via http(s). On file:// it may silently no-op.
+   ===================================================================== */
+let bc = null;
+try { bc = new BroadcastChannel('crossfit-overlay'); } catch (e) { bc = null; }
+
+if (bc) {
+  // Broadcast state + action
+  const origPersist = persist;
+  persist = function () {
+    origPersist();
+    try { bc.postMessage({ type: 'sync', state }); } catch (e) {}
+  };
+
+  bc.onmessage = e => {
+    const msg = e.data;
+    if (!msg || msg.type !== 'sync' || !msg.state) return;
+    const prevMode  = state.timerMode;
+    const prevDur   = state.duration;
+    state = { ...DEFAULT_STATE, ...msg.state };
+    if (!OVERLAY_ONLY) syncControlsFromState();
+    applyState();
+    if (prevMode !== state.timerMode || prevDur !== state.duration) {
+      resetTimer();
+    } else {
+      renderTimer();
+    }
+  };
+}
+
+/* Sync the control inputs when state was changed elsewhere */
+function syncControlsFromState() {
+  const set = (id, val) => { const n = $(id); if (n) n.value = val; };
+  const setChk = (id, val) => { const n = $(id); if (n) n.checked = !!val; };
+
+  set('inTitle',     state.title);
+  set('inSubtitle',  state.subtitle);
+  set('inFreeLeft',  state.freeLeft);
+  set('fontFamily',  state.fontFamily);
+  set('fontSize',    state.fontSize);
+  set('fontColor',   state.fontColor);
+  set('textAlign',   state.textAlign);
+  setChk('showLeft', state.showLeft);
+
+  set('timerMode',   state.timerMode);
+  set('durationInput', fmt(state.duration));
+  set('roundsInput', state.rounds);
+  set('workInput',   state.work);
+  set('restInput',   state.rest);
+  set('timerColor',  state.timerColor);
+  set('timerSize',   state.timerSize);
+  setChk('colorChange', state.colorChange);
+
+  set('inWodTitle',   state.wodTitle);
+  set('inWodText',    state.wodText);
+  set('inCoachTitle', state.coachTitle);
+  set('inCoachText',  state.coachText);
+  set('inHintTitle',  state.hintTitle);
+  set('inHintText',   state.hintText);
+  setChk('showRight', state.showRight);
+}
+
+/* =====================================================================
+   BOOT
+   ===================================================================== */
+function boot() {
+  applyState();
+  resetTimer();
+  rescalePreview();
+
+  if (!OVERLAY_ONLY) {
+    bindAll();
+    syncControlsFromState();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', boot);
+</script>
+</body>
+</html>
